@@ -2,42 +2,93 @@ library(tidyverse)
 library(dplyr)
 library(ggplot2)
 library(mosaic)
+library(lme4)
+#heat maps
+library(usmap)
 
-#data was downloaded in 2023, the dataset covers 1995-2021.
+#data was downloaded in 2023, the data set covers 1995-2021.
 HoneyProd<- read.csv("https://raw.githubusercontent.com/lukew69/Honey-Production/master/US_honey_dataset_updated.csv")
 View(HoneyProd)
 
-#plots for the US
-plot(HoneyProd$year, HoneyProd$colonies_number, xlab="Year", ylab="Amount of Producing Colonies")
-plot(HoneyProd$year, HoneyProd$production, xlab="Year", ylab="Honey Produced (pounds)")
-plot(HoneyProd$year, HoneyProd$value_of_production, xlab="Year", ylab="Value (dollars)")
+HoneyProd[HoneyProd=="NewMexico"] <- "New Mexico"
+HoneyProd[HoneyProd=="NewJersey"] <- "New Jersey"
+HoneyProd[HoneyProd=="NewYork"] <- "New York"
+HoneyProd[HoneyProd=="NorthCarolina"] <- "North Carolina"
+HoneyProd[HoneyProd=="NorthDakota"] <- "North Dakota"
+HoneyProd[HoneyProd=="SouthCarolina"] <- "South Carolina"
+HoneyProd[HoneyProd=="SouthDakota"] <- "South Dakota"
+HoneyProd[HoneyProd=="WestVirginia"] <- "West Virginia"
 
-plot(HoneyProd$colonies_number, HoneyProd$production, xlab="Amount of Producing Colonies", ylab="Honey Produced (pounds)")
-plot(HoneyProd$colonies_number, HoneyProd$value_of_production, xlab="Amount of Producing Colonies", ylab="Value (dollars)")
 
-plot(HoneyProd$production, HoneyProd$value_of_production, xlab="Honey Produced (pounds)", ylab="Value (dollars)")
+#taking the average of each state to make independence
+StateProd = HoneyProd %>%
+  group_by(state) %>%
+    summarise(
+      mean_prod=mean(production),
+      mean_value=mean(value_of_production),
+      mean_size=mean(colonies_number)
+    )
+View(StateProd)
+#heat maps
+plot_usmap(data=StateProd, values="mean_prod", color ="red") + 
+  scale_fill_continuous(low="white", high="Dark Orange",name="Average Honey Produced 1995-2021 (pounds)", label = scales::comma)+ 
+  theme(legend.position = "right")
 
-#correlation for the linear models for the US
-cor(HoneyProd$year, HoneyProd$colonies_number)
-cor(HoneyProd$year, HoneyProd$production)
-cor(HoneyProd$year, HoneyProd$value_of_production)
+plot_usmap(data=StateProd, values="mean_value", color ="red") + 
+  scale_fill_continuous(low="white", high="dark green", name="Average Value 1995-2021", label = scales::comma)+ 
+  theme(legend.position = "right")
 
-cor(HoneyProd$colonies_number, HoneyProd$production) #good
-cor(HoneyProd$colonies_number, HoneyProd$value_of_production) #good
+plot_usmap(data=StateProd, values="mean_size", color ="red") + 
+  scale_fill_continuous(low="white", high="red", name="Average Colony Size 1995-2021", label = scales::comma)+ 
+  theme(legend.position = "right")
 
-cor(HoneyProd$production, HoneyProd$value_of_production)
 
-#linear regression models for the adequate plots
-USreg1=lm(HoneyProd$colonies_number~HoneyProd$production )
-plot(HoneyProd$colonies_number, HoneyProd$production, xlab="Amount of Producing Colonies", ylab="Honey Produced (pounds)")
+#plots for the entire US, the year is not a factor
+#linear regression models
+cor(StateProd$mean_size, StateProd$mean_prod)
+USreg1=lm(StateProd$mean_prod~StateProd$mean_size)
+plot(StateProd$mean_size, StateProd$mean_prod, xlab="Number of Producing Colonies", ylab="Honey Produced (pounds)")
 abline(USreg1)
 summary(USreg1)
 
-USreg2=lm(HoneyProd$colonies_number~HoneyProd$value_of_production )
-plot(HoneyProd$colonies_number, HoneyProd$value_of_production, xlab="Amount of Producing Colonies", ylab="Value (dollars)")
+cor(StateProd$mean_size, StateProd$mean_value)
+USreg2=lm(StateProd$mean_value~StateProd$mean_size)
+plot(StateProd$mean_size, StateProd$mean_value, xlab="Number of Producing Colonies", ylab="Value (dollars)")
 abline(USreg2)
 summary(USreg2)
 
+
+#taking the average of each year to make independence
+YearProd = HoneyProd %>%
+  group_by(year) %>%
+  summarise(
+    mean_prod=mean(production),
+    mean_value=mean(value_of_production),
+    mean_size=mean(colonies_number)
+  )
+View(YearProd)
+
+#plots for each year, the state is not a factor
+#linear regression models
+cor(YearProd$year, YearProd$mean_size)
+Yreg1=lm(YearProd$mean_size~YearProd$year)
+plot(YearProd$year, YearProd$mean_size, xlab="Year", ylab="Number of Producing Colonies")
+abline(Yreg1)
+summary(Yreg1)
+
+cor(YearProd$year, YearProd$mean_value)
+Yreg2=lm(YearProd$mean_value~YearProd$year)
+plot(YearProd$year, YearProd$mean_value, xlab="Year", ylab="Value (dollars)")
+abline(Yreg2)
+summary(Yreg2)
+
+cor(YearProd$year, YearProd$mean_prod)
+Yreg3=lm(YearProd$mean_prod~YearProd$year)
+plot(YearProd$year, YearProd$mean_prod, xlab="Year", ylab="Honey Produced (pounds)")
+abline(Yreg3)
+summary(Yreg3)
+
+######################################
 #apply a natural log transformation
 #creating new columns in the data set for easier use later
 
@@ -55,19 +106,7 @@ HoneyProd <- HoneyProd %>%
   )
 View(HoneyProd)
 
-#run them again with the transformation
-cor(HoneyProd$colonies_number.ln, HoneyProd$production.ln)
-USreg1=lm(HoneyProd$colonies_number.ln~HoneyProd$production.ln )
-plot(HoneyProd$colonies_number.ln, HoneyProd$production.ln, xlab="Amount of Producing Colonies", ylab="Honey Produced (pounds)")
-abline(USreg1)
-summary(USreg1)
-
-cor(HoneyProd$colonies_number.ln, HoneyProd$value_of_production.ln)
-USreg2=lm(HoneyProd$colonies_number.ln~HoneyProd$value_of_production.ln )
-plot(HoneyProd$colonies_number.ln, HoneyProd$value_of_production.ln, xlab="Amount of Producing Colonies", ylab="Value (dollars)")
-abline(USreg2)
-summary(USreg2)
-
+###############################################
 ##honey production for specific states
 #This creates new data sets
 HoneyProdAZ = filter(HoneyProd, state == "Arizona")
